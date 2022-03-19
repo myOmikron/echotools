@@ -1,4 +1,4 @@
-package session
+package middleware
 
 import (
 	"crypto/rand"
@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"github.com/labstack/echo/v4"
 	"github.com/myOmikron/echotools/db"
-	"github.com/myOmikron/echotools/middleware"
 	"github.com/myOmikron/echotools/utilitymodels"
 	"net/http"
 	"time"
@@ -19,16 +18,15 @@ var (
 //Login This method is used to log a user in. auth.Authenticate has to be called before.
 // A cookie is set if the user can be logged in.
 // Parameter user: Can be retrieved by auth.Authenticate.
-// Parameter c: Pointer to the current context.
+// Parameter c: Pointer to the current context. Must implement middleware.SessionContext
 // Parameter config: Refer to SessionConfig.
 func Login(user *utilitymodels.User, c echo.Context) error {
-	context := c.(middleware.SessionContext)
+	context := c.(SessionContext)
 
 	// Couldn't find session with the current user associated
 	session := utilitymodels.Session{
-		CommonProps: utilitymodels.CommonProps{},
-		UserID:      user.ID,
-		ValidUntil:  time.Now().UTC().Add(*context.GetSessionConfig().CookieAge),
+		UserID:     user.ID,
+		ValidUntil: time.Now().UTC().Add(*context.GetSessionConfig().CookieAge),
 	}
 
 	// Generation of session id
@@ -70,5 +68,24 @@ func Login(user *utilitymodels.User, c echo.Context) error {
 
 		c.SetCookie(cookie)
 	}
+	return nil
+}
+
+//Logout Helper method to logout and therefore invalidating a user's session. If the user isn't logged in,
+//nil is returned
+func Logout(c echo.Context) error {
+	context := c.(SessionContext)
+
+	// If user is not authenticated, there's nothing to do
+	if !context.IsAuthenticated() {
+		return nil
+	}
+
+	if err := db.DB.Where("session_id = ?", *context.GetSessionID()).Delete(&utilitymodels.Session{}).Error; err != nil {
+		fmt.Println(err.Error())
+	}
+
+	// Flushing current session
+	context.flush()
 	return nil
 }
