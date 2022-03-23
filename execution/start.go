@@ -44,7 +44,7 @@ func SignalStart(e *echo.Echo, listenAddress string, restartFunc func()) {
 			e.Shutdown(ctx)
 			cancel()
 			break
-		} else if sig == syscall.SIGTERM { // Shutdown immediatly
+		} else if sig == syscall.SIGTERM { // Shutdown immediately
 			e.Close()
 			color.Println(color.PURPLE, "Server was shut down")
 			break
