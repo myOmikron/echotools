@@ -5,6 +5,7 @@ import (
 	"fmt"
 	jsoniter "github.com/json-iterator/go"
 	"github.com/labstack/echo/v4"
+	maso "github.com/myOmikron/masochism"
 	"io/ioutil"
 	"reflect"
 	"strings"
@@ -25,12 +26,12 @@ func ValidateJsonForm(c echo.Context, form interface{}) error {
 
 	b, err := ioutil.ReadAll(c.Request().Body)
 	if err != nil {
-		return err
+		return errors.New("error while reading body")
 	}
 
 	err = json.Unmarshal(b, form)
 	if err != nil {
-		return err
+		return errors.New("error while decoding json")
 	}
 
 	if t.Kind() == reflect.Ptr {
@@ -39,9 +40,13 @@ func ValidateJsonForm(c echo.Context, form interface{}) error {
 	}
 
 	var missing []string
+	var notEmptyViolated []string
 	for i := 0; i < t.NumField(); i++ {
 		field := t.Field(i)
-		required := field.Tag.Get(tagName) == "required"
+		tags := strings.Split(field.Tag.Get(tagName), ";")
+		cleaned := maso.Map(func(elem string) string { return strings.TrimSpace(elem) })(tags)
+		required := maso.Any(func(elem string) bool { return elem == "required" })(cleaned)
+		notEmpty := maso.Any(func(elem string) bool { return elem == "not empty" })(cleaned)
 		jsonName := field.Tag.Get("json")
 		if s := strings.Split(jsonName, ","); len(s) > 1 {
 			jsonName = s[0]
@@ -49,12 +54,22 @@ func ValidateJsonForm(c echo.Context, form interface{}) error {
 
 		if required && e.Field(i).IsNil() {
 			missing = append(missing, jsonName)
+		} else {
+			if notEmpty && e.Field(i).Type() == reflect.TypeOf("") && e.Field(i).String() == "" {
+				notEmptyViolated = append(notEmptyViolated, jsonName)
+			}
 		}
 	}
 	if len(missing) == 1 {
 		return errors.New(fmt.Sprintf("parameter %s is missing but required", missing[0]))
 	} else if len(missing) > 1 {
 		return errors.New(fmt.Sprintf("parameter %s are missing but required", strings.Join(missing, ", ")))
+	}
+
+	if len(notEmptyViolated) > 0 {
+		name := strings.Join(notEmptyViolated, ", ")
+
+		return errors.New(fmt.Sprintf("parameter %s must not be empty", name))
 	}
 
 	return nil
