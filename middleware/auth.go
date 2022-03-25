@@ -5,8 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"github.com/labstack/echo/v4"
-	"github.com/myOmikron/echotools/db"
 	"github.com/myOmikron/echotools/utilitymodels"
+	"gorm.io/gorm"
 	"net/http"
 	"time"
 )
@@ -20,7 +20,7 @@ var (
 // Parameter user: Can be retrieved by auth.Authenticate.
 // Parameter c: Pointer to the current context. Must implement middleware.SessionContext
 // Parameter config: Refer to SessionConfig.
-func Login(user *utilitymodels.User, c echo.Context) error {
+func Login(db *gorm.DB, user *utilitymodels.User, c echo.Context) error {
 	context := c.(SessionContext)
 
 	// Couldn't find session with the current user associated
@@ -38,7 +38,7 @@ func Login(user *utilitymodels.User, c echo.Context) error {
 			continue
 		}
 		sessionID := fmt.Sprintf("%x", r)
-		db.DB.Find(&utilitymodels.Session{}).Where("session_id = ?", sessionID).Count(&count)
+		db.Find(&utilitymodels.Session{}).Where("session_id = ?", sessionID).Count(&count)
 		if count == 0 {
 			session.SessionID = sessionID
 			break
@@ -46,11 +46,11 @@ func Login(user *utilitymodels.User, c echo.Context) error {
 		c.Logger().Debugf("Generated session_id already in database, regenerating ..")
 	}
 
-	if err := db.DB.Create(&session).Error; err != nil {
+	if err := db.Create(&session).Error; err != nil {
 		c.Logger().Errorf("Error saving session to database: %s", err.Error())
 		return ErrDatabaseError
 	} else {
-		if err := db.DB.Model(&user).Update("last_login_at", time.Now().UTC()).Error; err != nil {
+		if err := db.Model(&user).Update("last_login_at", time.Now().UTC()).Error; err != nil {
 			c.Logger().Warnf("Error updating last_login_at of user %d: %s", user.ID, err.Error())
 			return ErrDatabaseError
 		}
@@ -73,7 +73,7 @@ func Login(user *utilitymodels.User, c echo.Context) error {
 
 //Logout Helper method to logout and therefore invalidating a user's session. If the user isn't logged in,
 //nil is returned
-func Logout(c echo.Context) error {
+func Logout(db *gorm.DB, c echo.Context) error {
 	context := c.(SessionContext)
 
 	// If user is not authenticated, there's nothing to do
@@ -81,7 +81,7 @@ func Logout(c echo.Context) error {
 		return nil
 	}
 
-	if err := db.DB.Where("session_id = ?", *context.GetSessionID()).Delete(&utilitymodels.Session{}).Error; err != nil {
+	if err := db.Where("session_id = ?", *context.GetSessionID()).Delete(&utilitymodels.Session{}).Error; err != nil {
 		c.Logger().Error(err.Error())
 		return ErrDatabaseError
 	}
