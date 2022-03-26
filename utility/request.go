@@ -43,6 +43,8 @@ func ValidateJsonForm(c echo.Context, form interface{}) error {
 	var notEmptyViolated []string
 	for i := 0; i < t.NumField(); i++ {
 		field := t.Field(i)
+		fieldType := field.Type
+		fieldElem := e.Field(i)
 		tags := strings.Split(field.Tag.Get(tagName), ";")
 		cleaned := maso.Map(func(elem string) string { return strings.TrimSpace(elem) })(tags)
 		required := maso.Any(func(elem string) bool { return elem == "required" })(cleaned)
@@ -51,12 +53,36 @@ func ValidateJsonForm(c echo.Context, form interface{}) error {
 		if s := strings.Split(jsonName, ","); len(s) > 1 {
 			jsonName = s[0]
 		}
+		isPointer := fieldType.Kind() == reflect.Ptr
 
-		if required && e.Field(i).IsNil() {
-			missing = append(missing, jsonName)
-		} else {
-			if notEmpty && e.Field(i).Type() == reflect.TypeOf("") && e.Field(i).String() == "" {
-				notEmptyViolated = append(notEmptyViolated, jsonName)
+		// Required validation -> Can only be done on pointer
+		if required {
+			if isPointer {
+				if fieldElem.IsNil() {
+					missing = append(missing, jsonName)
+				}
+			} else {
+				// As this was probably not intended, output warnings
+				c.Logger().Warnf("echotools required tag set on a non-pointer field: %s", jsonName)
+			}
+		}
+
+		// Not empty validation -> Can only be done on string and *string
+		if notEmpty {
+			// Dereference pointer of needed
+			if isPointer {
+				fieldElem = fieldElem.Elem()
+				fieldType = fieldElem.Type()
+			}
+
+			// Check if field type is string
+			if fieldType.Kind() == reflect.String {
+				if fieldElem.String() == "" {
+					notEmptyViolated = append(notEmptyViolated, jsonName)
+				}
+			} else {
+				// As this was probably not intended, output warnings
+				c.Logger().Warnf("echotools not empty tag set on a non-string field: %s", jsonName)
 			}
 		}
 	}
@@ -68,7 +94,6 @@ func ValidateJsonForm(c echo.Context, form interface{}) error {
 
 	if len(notEmptyViolated) > 0 {
 		name := strings.Join(notEmptyViolated, ", ")
-
 		return errors.New(fmt.Sprintf("parameter %s must not be empty", name))
 	}
 
