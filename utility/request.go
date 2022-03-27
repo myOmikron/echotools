@@ -54,11 +54,13 @@ func ValidateJsonForm(c echo.Context, form interface{}) error {
 			jsonName = s[0]
 		}
 		isPointer := fieldType.Kind() == reflect.Ptr
+		isNil := false
 
 		// Required validation -> Can only be done on pointer
 		if required {
 			if isPointer {
 				if fieldElem.IsNil() {
+					isNil = true
 					missing = append(missing, jsonName)
 				}
 			} else {
@@ -68,7 +70,8 @@ func ValidateJsonForm(c echo.Context, form interface{}) error {
 		}
 
 		// Not empty validation -> Can only be done on string and *string
-		if notEmpty {
+		// Test if not isNil -> dereference a nil pointer is evil (and panics)
+		if !isNil && notEmpty {
 			// Dereference pointer of needed
 			if isPointer {
 				fieldElem = fieldElem.Elem()
