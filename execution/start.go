@@ -13,17 +13,23 @@ import (
 	"time"
 )
 
+type Config struct {
+	ReloadFunc    func()
+	StopFunc      func()
+	TerminateFunc func()
+}
+
 //SignalStart Starts the server on the provided address as a goroutine. Listens for the following signals:
 // syscall.SIGHUP: Reload the server
 // syscall.SIGINT: Stop the server gracefully
 // syscall.SIGTERM: Stop the server immediately
-func SignalStart(e *echo.Echo, listenAddress string, restartFunc func()) {
+func SignalStart(e *echo.Echo, listenAddress string, config *Config) {
 	control := make(chan os.Signal, 1)
 	signal.Notify(control, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
 	go func() {
 		// Start server
 		if err := e.Start(listenAddress); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			e.Logger.Fatal()
+			fmt.Println(err.Error())
 		}
 	}()
 
@@ -42,10 +48,12 @@ func SignalStart(e *echo.Echo, listenAddress string, restartFunc func()) {
 			color.Println(color.PURPLE, "Server is stopping gracefully")
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			e.Shutdown(ctx)
+			config.StopFunc()
 			cancel()
 			break
 		} else if sig == syscall.SIGTERM { // Shutdown immediately
 			e.Close()
+			config.TerminateFunc()
 			color.Println(color.PURPLE, "Server was shut down")
 			break
 		} else {
@@ -53,6 +61,6 @@ func SignalStart(e *echo.Echo, listenAddress string, restartFunc func()) {
 		}
 	}
 	if restart {
-		restartFunc()
+		config.ReloadFunc()
 	}
 }
