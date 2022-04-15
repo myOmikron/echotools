@@ -6,10 +6,11 @@ import (
 	"time"
 )
 
-func Logging(log logging.Logger) echo.MiddlewareFunc {
+func Logging() echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
 			start := time.Now()
+			log := logging.GetLogger("logging-mw")
 			if err := next(c); err != nil {
 				switch err.(type) {
 				case *echo.HTTPError:
