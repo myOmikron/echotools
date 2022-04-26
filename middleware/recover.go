@@ -3,7 +3,7 @@ package middleware
 import (
 	"fmt"
 	"github.com/labstack/echo/v4"
-	"github.com/myOmikron/echotools/logging"
+	"github.com/labstack/gommon/log"
 	"net/http"
 	"runtime"
 )
@@ -12,7 +12,6 @@ func Panic() echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
 			defer func() {
-				log := logging.GetLogger("panic-mw")
 				if r := recover(); r != nil {
 					if r == http.ErrAbortHandler {
 						panic(r)
@@ -24,7 +23,7 @@ func Panic() echo.MiddlewareFunc {
 
 					stack := make([]byte, 4<<10) // 4 KB Stack size
 					var length int
-					if logging.GetLogLevel() == logging.DEBUG {
+					if log.Level() == log.DEBUG {
 						length = runtime.Stack(stack, true)
 					} else {
 						length = runtime.Stack(stack, false)
