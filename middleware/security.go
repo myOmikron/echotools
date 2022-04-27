@@ -2,7 +2,7 @@ package middleware
 
 import (
 	"github.com/labstack/echo/v4"
-	"github.com/myOmikron/echotools/logging"
+	"github.com/labstack/gommon/log"
 	"github.com/myOmikron/echotools/utility"
 )
 
@@ -21,7 +21,6 @@ func Security(config *SecurityConfig) echo.MiddlewareFunc {
 	}
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
-			log := logging.GetLogger("security-mw")
 			allowed := false
 			if config.UseForwardedProtoHeader {
 				for _, allowedHost := range config.AllowedHosts {

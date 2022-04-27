@@ -3,10 +3,9 @@ package middleware
 import (
 	"errors"
 	"github.com/labstack/echo/v4"
-	"github.com/myOmikron/echotools/logging"
+	"github.com/labstack/gommon/log"
 	"github.com/myOmikron/echotools/utilitymodels"
 	"gorm.io/gorm"
-	"reflect"
 	"time"
 )
 
@@ -94,15 +93,7 @@ func Session(db *gorm.DB, config *SessionConfig) echo.MiddlewareFunc {
 
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
-			log := logging.GetLogger("session-mw")
 			// Check if SessionContext is available
-			field := reflect.ValueOf(c).Elem().FieldByName("SessionContext")
-			if field == (reflect.Value{}) {
-				log.Error(ErrSessionMisconfigured.Error())
-				// Skipping middleware to not break the server
-				return next(c)
-			}
-
 			sessionContext := &s{
 				userID:        nil,
 				authenticated: false,
@@ -132,7 +123,7 @@ func Session(db *gorm.DB, config *SessionConfig) echo.MiddlewareFunc {
 					// Check if session is not expired
 					if !time.Now().UTC().After(session.ValidUntil) {
 						var user utilitymodels.User
-						if db.Model(session).Association("User").Find(&user); err != nil {
+						if err := db.Model(session).Association("User").Find(&user); err != nil {
 							log.Warn(err.Error())
 						} else {
 							// Check if user is valid
@@ -157,7 +148,7 @@ func Session(db *gorm.DB, config *SessionConfig) echo.MiddlewareFunc {
 			}
 
 			// Set SessionContext
-			field.Set(reflect.ValueOf(&sessionContext).Elem())
+			c.Set("SessionContext", sessionContext)
 			return next(c)
 		}
 	}
