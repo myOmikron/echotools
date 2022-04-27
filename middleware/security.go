@@ -3,7 +3,6 @@ package middleware
 import (
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/gommon/log"
-	"github.com/myOmikron/echotools/utility"
 )
 
 type AllowedHost struct {
@@ -61,7 +60,7 @@ func Security(config *SecurityConfig) echo.MiddlewareFunc {
 					proto = "http://"
 				}
 				log.Debugf("%s is not in allowed hosts", proto+c.Request().Host)
-				return c.JSON(401, utility.JsonResponse{Error: "not allowed"})
+				return c.JSON(401, struct{ Error string }{Error: "not allowed"})
 			}
 			return next(c)
 		}
