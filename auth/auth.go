@@ -12,7 +12,6 @@ import (
 var (
 	ErrAuthenticationFailed = errors.New("authentication failed")
 	ErrUsernameNotFound     = errors.New("username not found")
-	ErrUserNotFound         = errors.New("user not found")
 	ErrHashError            = errors.New("hashing has failed")
 )
 
@@ -47,7 +46,7 @@ func SetNewPasswordForLocalUser(db *gorm.DB, userID uint, newPassword string) er
 	}
 
 	if count != 1 {
-		return ErrUserNotFound
+		return ErrUsernameNotFound
 	}
 
 	if hash, err := bcrypt.GenerateFromPassword([]byte(newPassword), 12); err != nil {
