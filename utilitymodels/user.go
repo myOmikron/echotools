@@ -17,11 +17,14 @@ type LocalUser struct {
 
 type LDAPProvider struct {
 	Common
-	Name         string
-	Uri          string
-	SearchBase   string
-	SearchFilter *string
-	AdminGroup   *string
+	Name               string
+	Uri                string
+	BindUser           *string
+	BindPassword       *string
+	SearchBase         string
+	SearchFilter       *string
+	AdminGroup         *string
+	ForgotPasswordLink *string
 }
 
 type LDAPUser struct {
@@ -30,6 +33,7 @@ type LDAPUser struct {
 	LDAPProviderID uint
 	LDAPProvider   LDAPProvider
 	Username       string
+	DN             string
 }
 
 func (user *LDAPUser) GetAuthModelIdentifier() (string, uint) {
